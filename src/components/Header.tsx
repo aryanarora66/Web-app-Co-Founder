@@ -3,7 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 
-const Header = () => {
+const Header = () => { // update layout.tsx to show on all pages
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   return (

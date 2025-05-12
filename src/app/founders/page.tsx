@@ -35,7 +35,7 @@ const FoundersPage = () => {
     const fetchFounders = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/users');
+        const response = await fetch('/api/users'); // fetch user list 
         if (!response.ok) {
           throw new Error('Failed to fetch users');
         }

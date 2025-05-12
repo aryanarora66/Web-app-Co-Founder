@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest) { // auth check -> user list 
   try {
     await connectDB();
     
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       query.role = role;
     }
     
-    const users = await User.find(query)
+    const users = await User.find(query) // show user list 
       .select('-password')
       .sort({ createdAt: -1 });
     
