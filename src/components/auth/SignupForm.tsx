@@ -153,27 +153,30 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
-          >
-            <option value="Founder">Founder</option>
-            <option value="Co-Founder">Co-Founder</option>
-          </select>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+            >
+              <option value="founder">Founder</option>
+              <option value="cofounder">Co-Founder</option>
+              <option value="developer">Developer</option>
+              <option value="designer">Designer</option>
+              <option value="marketer">Marketer</option>
+              <option value="investor">Investor</option>
+              <option value="advisor">Advisor</option>
+              <option value="product">Product Manager</option>
+              <option value="operations">Operations</option>
+              <option value="sales">Sales</option>
+              <option value="finance">Finance</option>
+              <option value="customer_success">Customer Success</option>
+              <option value="data_scientist">Data Scientist</option>
+              <option value="growth_hacker">Growth Hacker</option>
+              <option value="legal">Legal</option>
+            </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL (optional)</label>
-          <input
-            type="text"
-            name="instagramUrl"
-            value={formData.instagramUrl}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
-          />
-        </div>
       </div>
 
       <button

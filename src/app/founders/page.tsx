@@ -1,61 +1,56 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import FounderCard from '@/components/FounderCard';
 import SearchBar from '@/components/SearchBar';
 import FilterSection from '@/components/FilterSection';
 import Link from 'next/link';
 
+// Define types based on the database model
+interface Skill {
+  skill: string;
+  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+}
+
+interface User {
+  _id: string;
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+  profileImage?: string;
+  description?: string;
+  skills?: Skill[];
+  lookingFor?: string[];
+}
+
 const FoundersPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({});
+  const [founders, setFounders] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
-  const allFounders = [
-    {
-      name: "Alex Johnson",
-      role: "Technical Founder",
-      skills: [
-        { skill: "React", level: "Expert" as const },
-        { skill: "Node.js", level: "Advanced" as const },
-        { skill: "AWS", level: "Intermediate" as const },
-      ],
-      bio: "Full-stack developer with 5 years of experience building scalable web applications. Looking for a business co-founder to help bring my SaaS idea to market.",
-      lookingFor: ["Business development", "Marketing", "Sales"]
-    },
-    {
-      name: "Sarah Miller",
-      role: "Business Founder",
-      skills: [
-        { skill: "Marketing", level: "Expert" as const },
-        { skill: "Sales", level: "Advanced" as const },
-        { skill: "Finance", level: "Intermediate" as const },
-      ],
-      bio: "Experienced marketer with a proven track record in B2B SaaS. Have an idea for a productivity tool but need technical expertise to build it.",
-      lookingFor: ["Frontend Development", "Backend Development", "UI/UX Design"]
-    },
-    {
-      name: "Raj Patel",
-      role: "Design Founder",
-      skills: [
-        { skill: "UI/UX Design", level: "Expert" as const },
-        { skill: "Figma", level: "Advanced" as const },
-        { skill: "Product Design", level: "Advanced" as const },
-      ],
-      bio: "Product designer with experience at top tech companies. Looking for technical and business co-founders to collaborate on a design tool startup.",
-      lookingFor: ["Full-stack Development", "Product Management", "Marketing"]
-    },
-    {
-      name: "Emily Chen",
-      role: "Technical Founder",
-      skills: [
-        { skill: "Machine Learning", level: "Expert" as const },
-        { skill: "Python", level: "Advanced" as const },
-        { skill: "Data Science", level: "Advanced" as const },
-      ],
-      bio: "AI researcher looking to commercialize my research in healthcare applications. Need co-founders with healthcare domain expertise and business acumen.",
-      lookingFor: ["Healthcare Expertise", "Business Strategy", "Regulatory Knowledge"]
-    }
-  ];
+  useEffect(() => {
+    const fetchFounders = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/users');
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+        const data = await response.json();
+        setFounders(data.data);
+      } catch (err) {
+        console.error('Error fetching founders:', err);
+        setError('Failed to load founders. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchFounders();
+  }, []);
   
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -65,21 +60,22 @@ const FoundersPage = () => {
     setFilters({ ...filters, ...newFilters });
   };
   
-  const filteredFounders = allFounders.filter(founder => {
+  const filteredFounders = founders.filter(founder => {
     const matchesSearch = 
-      founder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      founder.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      founder.skills.some(skill => skill.skill.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      founder.lookingFor.some(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+      founder.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      founder.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      founder.skills?.some(skill => skill.skill.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      founder.lookingFor?.some(item => item.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      founder.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesFilters = Object.entries(filters).every(([key, value]) => {
       if (!value) return true;
       
       if (key === 'role') {
-        return founder.role.toLowerCase().includes(value.toString().toLowerCase());
+        return founder.role?.toLowerCase().includes(value.toString().toLowerCase());
       }
       
-      if (key === 'skillLevel') {
+      if (key === 'skillLevel' && founder.skills) {
         return founder.skills.some(skill => skill.level === value);
       }
       
@@ -88,6 +84,38 @@ const FoundersPage = () => {
     
     return matchesSearch && matchesFilters;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <Header />
+        <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <Header />
+        <main className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+            >
+              Retry
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -117,8 +145,16 @@ const FoundersPage = () => {
           <div className="lg:w-3/4">
             <div className="grid grid-cols-1 gap-6">
               {filteredFounders.length > 0 ? (
-                filteredFounders.map((founder, index) => (
-                  <FounderCard key={index} {...founder} />
+                filteredFounders.map((founder) => (
+                  <FounderCard 
+                    key={founder._id} 
+                    name={founder.name || founder.username}
+                    role={founder.role}
+                    skills={founder.skills || []}
+                    bio={founder.description || ''}
+                    lookingFor={founder.lookingFor || []}
+                    profileImage={founder.profileImage}
+                  />
                 ))
               ) : (
                 <div className="bg-white p-8 rounded-xl shadow-md border border-gray-200 text-center">
