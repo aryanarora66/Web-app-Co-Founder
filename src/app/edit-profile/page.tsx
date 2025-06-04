@@ -1,64 +1,294 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Camera, Mail, Globe, Lock, User, Briefcase, X } from 'lucide-react';
+import Image from 'next/image';
+import {
+  Camera,
+  Mail,
+  Globe,
+  Lock,
+  User,
+  Briefcase,
+  X,
+  Plus,
+  Trash2,
+  Save,
+  Loader2,
+} from 'lucide-react';
+import { Profile, UpdateProfileData, Skill, SocialLink, Project } from '../../../types/profile';
+import { profileService } from '../../../services/profileService';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorMessage from '@/components/ErrorMessage';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function EditProfilePage() {
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john@networty.com',
-    bio: 'Full-stack developer passionate about building scalable startups',
-    role: 'Technical Founder',
-    website: 'https://johndoe.com',
-    socialLinks: ['https://github.com/johndoe', 'https://linkedin.com/in/johndoe']
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [newSocialLink, setNewSocialLink] = useState({
+    platform: '',
+    url: '',
+  });
+  const [newSkill, setNewSkill] = useState({
+    skill: '',
+    level: 'Beginner' as const,
+  });
+  const [newProject, setNewProject] = useState({
+    title: '',
+    description: '',
+    url: '',
+    technologies: [] as string[],
   });
 
-  const [newSocialLink, setNewSocialLink] = useState('');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const userId = 'current-user-id'; // Replace with actual user ID
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle form submission
-  };
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
-  const addSocialLink = () => {
-    if (newSocialLink) {
-      setProfile({...profile, socialLinks: [...profile.socialLinks, newSocialLink]});
-      setNewSocialLink('');
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const profileData = await profileService.getProfile(userId);
+      setProfile(profileData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+
+    try {
+      setSaving(true);
+      const updateData: UpdateProfileData = {
+        name: profile.name,
+        role: profile.role,
+        bio: profile.bio,
+        website: profile.website,
+        skills: profile.skills.map(({ id, ...skill }: Skill) => skill),
+        socialLinks: profile.socialLinks.map(({ id, ...link }) => link),
+        projects: profile.projects.map(({ id, ...project }) => project),
+      };
+
+      await profileService.updateProfile(userId, updateData);
+      router.push('/profile');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      setUploading(true);
+      const imageUrl = await profileService.uploadProfileImage(userId, file);
+      setProfile(prev => prev ? { ...prev, profileImage: imageUrl } : null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await profileService.deleteProfile(userId);
+      // Redirect to home or login page
+      router.push('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete account');
+    }
+  };
+
+  const addSkill = () => {
+    if (!profile || !newSkill.skill.trim()) return;
+    
+    const skill: Skill = {
+      id: Date.now().toString(),
+      skill: newSkill.skill.trim(),
+      level: newSkill.level,
+    };
+    
+    setProfile({
+      ...profile,
+      skills: [...profile.skills, skill],
+    });
+    
+    setNewSkill({ skill: '', level: 'Beginner' });
+  };
+
+  const removeSkill = (skillId: string) => {
+    if (!profile) return;
+    setProfile({
+      ...profile,
+      skills: profile.skills.filter(skill => skill.id !== skillId),
+    });
+  };
+
+  const addSocialLink = () => {
+    if (!profile || !newSocialLink.platform.trim() || !newSocialLink.url.trim()) return;
+    
+    const socialLink: SocialLink = {
+      id: Date.now().toString(),
+      platform: newSocialLink.platform.trim(),
+      url: newSocialLink.url.trim(),
+    };
+    
+    setProfile({
+      ...profile,
+      socialLinks: [...profile.socialLinks, socialLink],
+    });
+    
+    setNewSocialLink({ platform: '', url: '' });
+  };
+
+  const removeSocialLink = (linkId: string) => {
+    if (!profile) return;
+    setProfile({
+      ...profile,
+      socialLinks: profile.socialLinks.filter(link => link.id !== linkId),
+    });
+  };
+
+  const addProject = () => {
+    if (!profile || !newProject.title.trim() || !newProject.description.trim()) return;
+    
+    const project: Project = {
+      id: Date.now().toString(),
+      title: newProject.title.trim(),
+      description: newProject.description.trim(),
+      url: newProject.url.trim(),
+      technologies: newProject.technologies,
+    };
+    
+    setProfile({
+      ...profile,
+      projects: [...profile.projects, project],
+    });
+    
+    setNewProject({
+      title: '',
+      description: '',
+      url: '',
+      technologies: [],
+    });
+  };
+
+  const removeProject = (projectId: string) => {
+    if (!profile) return;
+    setProfile({
+      ...profile,
+      projects: profile.projects.filter(project => project.id !== projectId),
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <ErrorMessage message={error} onRetry={fetchProfile} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="text-center">Profile not found</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-2xl font-bold">
+      <div className="max-w-4xl mx-auto py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 sm:p-8">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+            <h1 className="text-xl sm:text-2xl font-bold">
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 Edit Profile
               </span>
             </h1>
-            <Link href="/profile" className="text-gray-500 hover:text-blue-600">
-              <X className="h-6 w-6" />
+            <Link 
+              href="/profile" 
+              className="text-gray-500 hover:text-blue-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
             </Link>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             {/* Profile Picture Section */}
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Camera className="h-5 w-5 mr-2 text-blue-600" />
                 Profile Picture
               </h2>
-              <div className="flex items-center space-x-4">
-                <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Camera className="h-8 w-8 text-gray-400" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                  {uploading ? (
+                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                  ) : profile.profileImage ? (
+                    <Image
+                      src={profile.profileImage}
+                      alt={profile.name}
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Camera className="h-8 w-8 text-gray-400" />
+                  )}
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                  className="hidden"
+                />
                 <button
                   type="button"
-                  className="px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Upload New Photo
+                  {uploading ? 'Uploading...' : 'Upload New Photo'}
                 </button>
               </div>
             </div>
@@ -70,11 +300,14 @@ export default function EditProfilePage() {
                 Personal Information
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
                   <input
                     type="text"
+                    required
                     value={profile.name}
                     onChange={(e) => setProfile({...profile, name: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
@@ -82,22 +315,114 @@ export default function EditProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Role *
+                  </label>
                   <input
                     type="text"
+                    required
                     value={profile.role}
                     onChange={(e) => setProfile({...profile, role: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={profile.website || ''}
+                    onChange={(e) => setProfile({...profile, website: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                    placeholder="https://your-website.com"
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bio *
+                  </label>
                   <textarea
+                    required
                     value={profile.bio}
                     onChange={(e) => setProfile({...profile, bio: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 h-32"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 h-24 sm:h-32 resize-none"
+                    placeholder="Tell us about yourself..."
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Skills Section */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">Skills</h2>
+              
+              <div className="space-y-3">
+                {profile.skills.map((skill) => (
+                  <div key={skill.id} className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={skill.skill}
+                      onChange={(e) => {
+                        const updatedSkills = profile.skills.map(s =>
+                          s.id === skill.id ? { ...s, skill: e.target.value } : s
+                        );
+                        setProfile({ ...profile, skills: updatedSkills });
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                    />
+                    <select
+                      value={skill.level}
+                      onChange={(e) => {
+                        const updatedSkills = profile.skills.map(s =>
+                          s.id === skill.id ? { ...s, level: e.target.value as any } : s
+                        );
+                        setProfile({ ...profile, skills: updatedSkills });
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm w-full sm:w-auto"
+                    >
+                      <option value="Beginner">Beginner</option>
+                      <option value="Intermediate">Intermediate</option>
+                      <option value="Advanced">Advanced</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(skill.id)}
+                      className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                  <input
+                    type="text"
+                    value={newSkill.skill}
+                    onChange={(e) => setNewSkill({ ...newSkill, skill: e.target.value })}
+                    placeholder="Add new skill"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                  />
+                  <select
+                    value={newSkill.level}
+                    onChange={(e) => setNewSkill({ ...newSkill, level: e.target.value as any })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm w-full sm:w-auto"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={addSkill}
+                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center text-sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </button>
                 </div>
               </div>
             </div>
@@ -109,115 +434,200 @@ export default function EditProfilePage() {
                 Social Links
               </h2>
               
-              <div className="space-y-2">
-                {profile.socialLinks.map((link, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+              <div className="space-y-3">
+                {profile.socialLinks.map((link) => (
+                  <div key={link.id} className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-gray-50 rounded-lg">
                     <input
                       type="text"
-                      value={link}
+                      value={link.platform}
                       onChange={(e) => {
-                        const newLinks = [...profile.socialLinks];
-                        newLinks[index] = e.target.value;
-                        setProfile({...profile, socialLinks: newLinks});
+                        const updatedLinks = profile.socialLinks.map(l =>
+                          l.id === link.id ? { ...l, platform: e.target.value } : l
+                        );
+                        setProfile({ ...profile, socialLinks: updatedLinks });
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                      className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                      placeholder="Platform"
+                    />
+                    <input
+                      type="url"
+                      value={link.url}
+                      onChange={(e) => {
+                        const updatedLinks = profile.socialLinks.map(l =>
+                          l.id === link.id ? { ...l, url: e.target.value } : l
+                        );
+                        setProfile({ ...profile, socialLinks: updatedLinks });
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                      placeholder="URL"
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        const newLinks = profile.socialLinks.filter((_, i) => i !== index);
-                        setProfile({...profile, socialLinks: newLinks});
-                      }}
-                      className="text-red-500 hover:text-red-700"
+                      onClick={() => removeSocialLink(link.id)}
+                      className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      <X className="h-5 w-5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
                 
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                   <input
                     type="text"
-                    value={newSocialLink}
-                    onChange={(e) => setNewSocialLink(e.target.value)}
-                    placeholder="Add new social link"
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                    value={newSocialLink.platform}
+                    onChange={(e) => setNewSocialLink({ ...newSocialLink, platform: e.target.value })}
+                    placeholder="Platform (e.g., GitHub)"
+                    className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                  />
+                  <input
+                    type="url"
+                    value={newSocialLink.url}
+                    onChange={(e) => setNewSocialLink({ ...newSocialLink, url: e.target.value })}
+                    placeholder="URL"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
                   />
                   <button
                     type="button"
                     onClick={addSocialLink}
-                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center text-sm"
                   >
-                    Add
+                    <Plus className="h-4 w-4 mr-1" /> Add
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Account Security Section */}
+            {/* Projects Section */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Lock className="h-5 w-5 mr-2 text-blue-600" />
-                Account Security
-              </h2>
-
+              <h2 className="text-lg font-semibold text-gray-900">Projects</h2>
+              
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="email"
-                      value={profile.email}
-                      disabled
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
-                    />
-                    <button
-                      type="button"
-                      className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      Change
-                    </button>
+                {profile.projects.map((project) => (
+                  <div key={project.id} className="p-4 bg-gray-50 rounded-lg space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 space-y-3">
+                        <input
+                          type="text"
+                          value={project.title}
+                          onChange={(e) => {
+                            const updatedProjects = profile.projects.map(p =>
+                              p.id === project.id ? { ...p, title: e.target.value } : p
+                            );
+                            setProfile({ ...profile, projects: updatedProjects });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                          placeholder="Project title"
+                        />
+                        <textarea
+                          value={project.description}
+                          onChange={(e) => {
+                            const updatedProjects = profile.projects.map(p =>
+                              p.id === project.id ? { ...p, description: e.target.value } : p
+                            );
+                            setProfile({ ...profile, projects: updatedProjects });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm h-20 resize-none"
+                          placeholder="Project description"
+                        />
+                        <input
+                          type="url"
+                          value={project.url}
+                          onChange={(e) => {
+                            const updatedProjects = profile.projects.map(p =>
+                              p.id === project.id ? { ...p, url: e.target.value } : p
+                            );
+                            setProfile({ ...profile, projects: updatedProjects });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                          placeholder="Project URL"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeProject(project.id)}
+                        className="ml-3 text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                ))}
+                
+                <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg space-y-3">
                   <input
-                    type="password"
-                    placeholder="Enter new password"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                    type="text"
+                    value={newProject.title}
+                    onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
+                    placeholder="New project title"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
                   />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" id="2fa" className="rounded text-blue-600" />
-                  <label htmlFor="2fa" className="text-sm text-gray-700">
-                    Enable Two-Factor Authentication
-                  </label>
+                  <textarea
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                    placeholder="Project description"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm h-20 resize-none"
+                  />
+                  <input
+                    type="url"
+                    value={newProject.url}
+                    onChange={(e) => setNewProject({ ...newProject, url: e.target.value })}
+                    placeholder="Project URL"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={addProject}
+                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center text-sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Project
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 pt-6 border-t">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="px-6 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-6 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm sm:text-base"
               >
                 Delete Account
               </button>
               
               <button
                 type="submit"
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+                disabled={saving}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm sm:text-base"
               >
-                Save Changes
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action cannot be undone."
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }
