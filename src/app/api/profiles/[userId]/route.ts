@@ -3,7 +3,7 @@ import { Profile, UpdateProfileData, ApiResponse } from '../../../../../types/pr
 
 // This is a mock implementation - replace with your actual database logic
 const mockProfile: Profile = {
-    id: 'current-user-id',
+    id: 'current-user-id', // This should match your actual user ID from auth
     name: 'John Doe',
     email: 'john@example.com',
     role: 'Technical Founder',
@@ -44,24 +44,31 @@ const mockProfile: Profile = {
 // GET /api/profiles/[userId]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
-    const { userId } = params;
+    // Await the params object (required in newer Next.js versions)
+    const { userId } = await context.params;
+    
+    console.log('Fetching profile for userId:', userId); // Debug log
     
     // TODO: Replace with actual database query
     // const profile = await db.profile.findUnique({ where: { id: userId } });
     
-    if (!userId || userId !== mockProfile.id) {
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Profile not found' },
-        { status: 404 }
+        { success: false, error: 'User ID is required' },
+        { status: 400 }
       );
     }
 
+    // For now, return mock profile for any valid user ID
+    // In production, you should query your database here
+    const profile = { ...mockProfile, id: userId };
+
     return NextResponse.json({
       success: true,
-      data: mockProfile
+      data: profile
     });
   } catch (error) {
     console.error('GET /api/profiles/[userId] error:', error);
@@ -75,11 +82,14 @@ export async function GET(
 // PUT /api/profiles/[userId]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
-    const { userId } = params;
+    // Await the params object
+    const { userId } = await context.params;
     const updateData: UpdateProfileData = await request.json();
+    
+    console.log('Updating profile for userId:', userId); // Debug log
     
     // TODO: Replace with actual database update
     // const updatedProfile = await db.profile.update({
@@ -89,6 +99,7 @@ export async function PUT(
 
     const updatedProfile: Profile = {
       ...mockProfile,
+      id: userId, // Use the actual user ID
       ...updateData,
       skills: updateData.skills?.map((skill, index) => ({
         id: (index + 1).toString(),
@@ -122,10 +133,13 @@ export async function PUT(
 // DELETE /api/profiles/[userId]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ): Promise<NextResponse<ApiResponse<null>>> {
   try {
-    const { userId } = params;
+    // Await the params object
+    const { userId } = await context.params;
+    
+    console.log('Deleting profile for userId:', userId); // Debug log
     
     // TODO: Replace with actual database deletion
     // await db.profile.delete({ where: { id: userId } });

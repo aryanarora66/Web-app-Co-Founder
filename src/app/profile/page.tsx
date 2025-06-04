@@ -41,9 +41,18 @@ export default function ProfilePage() {
     
     try {
       setLoading(true);
-      const profileData = await profileService.getProfile(user.id);
+      // Use user.id or user._id, whichever is available
+      const userId = user.id || (user as any)._id;
+      console.log('Fetching profile for user ID:', userId); // Debug log
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
+      const profileData = await profileService.getProfile(userId);
       setProfile(profileData);
     } catch (err) {
+      console.error('Profile fetch error:', err); // Debug log
       setError(err instanceof Error ? err.message : 'Failed to load profile');
     } finally {
       setLoading(false);
@@ -63,6 +72,18 @@ export default function ProfilePage() {
       default:
         return <Globe className="h-4 w-4" />;
     }
+  };
+
+  // Helper function to get user initials safely - using username
+  const getUserInitials = (username?: string) => {
+    if (!username || typeof username !== 'string') return '??';
+    // For usernames, just take first 2 characters and uppercase them
+    return username.slice(0, 2).toUpperCase();
+  };
+
+  // Helper function to get display name - prefer name, fallback to username
+  const getDisplayName = () => {
+    return user?.name || user?.username || 'User';
   };
 
   // Show loading if either user or profile is loading
@@ -103,7 +124,15 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="text-center">Please log in to view your profile</div>
+          <div className="text-center">
+            <p className="text-gray-600">Please log in to view your profile</p>
+            <Link
+              href="/login"
+              className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Login
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -117,37 +146,41 @@ export default function ProfilePage() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 sm:mb-8 space-y-4 lg:space-y-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 w-full lg:w-auto">
               <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-blue-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {user.imageUrl ? (
+                {user.imageUrl || (user as any).profileImage ? (
                   <Image
-                    src={user.imageUrl}
-                    alt={user.name}
+                    src={user.imageUrl || (user as any).profileImage}
+                    alt={getDisplayName()}
                     width={96}
                     height={96}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                    {user.name
-                      .split(' ')
-                      .map((n: string) => n[0])
-                      .join('')
-                      .toUpperCase()}
+                    {getUserInitials(user.username)}
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {user.name}
+                    {getDisplayName()}
                   </span>
                 </h1>
                 <p className="flex items-center text-gray-600 mt-1 text-sm sm:text-base">
                   <Briefcase className="h-4 w-4 mr-2 text-blue-600 flex-shrink-0" />
-                  <span className="break-words">{user.role}</span>
+                  <span className="break-words">{user.role || 'Role not specified'}</span>
                 </p>
-                <p className="flex items-center text-gray-600 mt-1 text-sm">
-                  <span className="text-gray-500">@{user.username}</span>
-                </p>
+                {user.username && (
+                  <p className="flex items-center text-gray-600 mt-1 text-sm">
+                    <span className="text-gray-500">@{user.username}</span>
+                  </p>
+                )}
+                {user.email && (
+                  <p className="flex items-center text-gray-600 mt-1 text-sm">
+                    <Mail className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500">{user.email}</span>
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-2 w-full lg:w-auto">
@@ -172,6 +205,18 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* User description fallback if no profile bio */}
+          {!profile?.bio && (user as any).description && (
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                About Me
+              </h2>
+              <p className="text-gray-700 leading-relaxed text-sm sm:text-base break-words">
+                {(user as any).description}
+              </p>
+            </div>
+          )}
+
           {/* Skills Section */}
           {profile?.skills && profile.skills.length > 0 && (
             <div className="mb-6 sm:mb-8">
@@ -190,10 +235,28 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Fallback to user skills if no profile skills */}
+          {(!profile?.skills || profile.skills.length === 0) && (user as any).skills && (user as any).skills.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Skills & Expertise
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {(user as any).skills.map((skill: any, index: number) => (
+                  <SkillCard
+                    key={index}
+                    skill={skill.skill}
+                    level={skill.level}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Social Links */}
           {((profile?.socialLinks && profile.socialLinks.length > 0) || 
             profile?.website || 
-            user.instagramUrl) && (
+            (user as any).instagramUrl) && (
             <div className="mb-6 sm:mb-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Globe className="h-5 w-5 mr-2 text-blue-600" />
@@ -211,9 +274,9 @@ export default function ProfilePage() {
                     <span className="truncate">Website</span>
                   </a>
                 )}
-                {user.instagramUrl && (
+                {(user as any).instagramUrl && (
                   <a
-                    href={user.instagramUrl}
+                    href={(user as any).instagramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center text-sm sm:text-base"
@@ -258,7 +321,7 @@ export default function ProfilePage() {
                     <p className="text-gray-700 text-sm mb-2 break-words">
                       {project.description}
                     </p>
-                    {project.technologies.length > 0 && (
+                    {project.technologies && project.technologies.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
                         {project.technologies.map((tech, index) => (
                           <span
@@ -270,16 +333,37 @@ export default function ProfilePage() {
                         ))}
                       </div>
                     )}
-                    <a
-                      href={project.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 text-sm hover:underline flex items-center"
-                    >
-                      Learn More
-                      <ExternalLink className="h-3 w-3 ml-1" />
-                    </a>
+                    {project.url && (
+                      <a
+                        href={project.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 text-sm hover:underline flex items-center"
+                      >
+                        Learn More
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
+                    )}
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* What I'm Looking For */}
+          {(user as any).lookingFor && (user as any).lookingFor.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                What I'm Looking For
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {(user as any).lookingFor.map((item: string, index: number) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-sm"
+                  >
+                    {item}
+                  </span>
                 ))}
               </div>
             </div>

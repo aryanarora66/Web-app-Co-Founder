@@ -1,3 +1,4 @@
+// api/auth/me/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
@@ -19,13 +20,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    // Fetch user data
-    const user = await User.findById(decoded.id).select("-password");
+    // Fetch user data - handle both id and _id cases
+    let user = await User.findById(decoded.id).select("-password");
+    
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ user }, { status: 200 });
+    // Convert _id to id for consistency
+    const userResponse = {
+      id: user._id.toString(), // Ensure id is always available
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      profileImage: user.profileImage,
+      description: user.description,
+      skills: user.skills,
+      lookingFor: user.lookingFor,
+      demoVideos: user.demoVideos,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+
+    console.log('Auth/me returning user:', userResponse); // Debug log
+
+    return NextResponse.json({ user: userResponse }, { status: 200 });
   } catch (error) {
     console.error("Me API error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });

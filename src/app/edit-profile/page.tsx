@@ -21,10 +21,12 @@ import { profileService } from '../../../services/profileService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import useUser from '../hooks/useUser';
 
 export default function EditProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user, loading: userLoading, error: userError } = useUser();
   
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,19 +49,54 @@ export default function EditProfilePage() {
     technologies: [] as string[],
   });
 
-  const userId = 'current-user-id'; // Replace with actual user ID
-
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
 
   const fetchProfile = async () => {
+    if (!user) {
+      setError('User not found');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      // Use user.id or user._id, whichever is available
+      const userId = user.id || (user as any)._id;
+      console.log('Fetching profile for user ID:', userId);
+      console.log('User object:', user);
+      
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+      
       const profileData = await profileService.getProfile(userId);
       setProfile(profileData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load profile');
+      console.error('Profile fetch error:', err);
+      // Initialize empty profile if none exists
+      if (err instanceof Error && err.message.includes('not found')) {
+        setProfile({
+          id: user.id || (user as any)._id,
+          name: '',
+          email: user.email,
+          role: user.role || '',
+          bio: '',
+          website: '',
+          skills: [],
+          socialLinks: [],
+          projects: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          username: user.username,
+          profileImage: undefined
+        });
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load profile');
+      }
     } finally {
       setLoading(false);
     }
@@ -67,18 +104,24 @@ export default function EditProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    if (!profile || !user) return;
+
+    const userId = user.id || (user as any)._id;
+    if (!userId) {
+      setError('User ID not found');
+      return;
+    }
 
     try {
       setSaving(true);
       const updateData: UpdateProfileData = {
-        name: profile.name,
-        role: profile.role,
-        bio: profile.bio,
-        website: profile.website,
-        skills: profile.skills.map(({ id, ...skill }: Skill) => skill),
-        socialLinks: profile.socialLinks.map(({ id, ...link }) => link),
-        projects: profile.projects.map(({ id, ...project }) => project),
+        name: profile.name || user.username, // Use username as fallback
+        role: profile.role || user.role,
+        bio: profile.bio || '',
+        website: profile.website || '',
+        skills: profile.skills?.map(({ id, ...skill }: Skill) => skill) || [],
+        socialLinks: profile.socialLinks?.map(({ id, ...link }) => link) || [],
+        projects: profile.projects?.map(({ id, ...project }) => project) || [],
       };
 
       await profileService.updateProfile(userId, updateData);
@@ -91,6 +134,11 @@ export default function EditProfilePage() {
   };
 
   const handleImageUpload = async (file: File) => {
+    if (!user) return;
+    
+    const userId = user.id || (user as any)._id;
+    if (!userId) return;
+
     try {
       setUploading(true);
       const imageUrl = await profileService.uploadProfileImage(userId, file);
@@ -103,9 +151,13 @@ export default function EditProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    const userId = user.id || (user as any)._id;
+    if (!userId) return;
+
     try {
       await profileService.deleteProfile(userId);
-      // Redirect to home or login page
       router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete account');
@@ -123,7 +175,7 @@ export default function EditProfilePage() {
     
     setProfile({
       ...profile,
-      skills: [...profile.skills, skill],
+      skills: [...(profile.skills || []), skill],
     });
     
     setNewSkill({ skill: '', level: 'Beginner' });
@@ -133,7 +185,7 @@ export default function EditProfilePage() {
     if (!profile) return;
     setProfile({
       ...profile,
-      skills: profile.skills.filter(skill => skill.id !== skillId),
+      skills: (profile.skills || []).filter(skill => skill.id !== skillId),
     });
   };
 
@@ -148,7 +200,7 @@ export default function EditProfilePage() {
     
     setProfile({
       ...profile,
-      socialLinks: [...profile.socialLinks, socialLink],
+      socialLinks: [...(profile.socialLinks || []), socialLink],
     });
     
     setNewSocialLink({ platform: '', url: '' });
@@ -158,7 +210,7 @@ export default function EditProfilePage() {
     if (!profile) return;
     setProfile({
       ...profile,
-      socialLinks: profile.socialLinks.filter(link => link.id !== linkId),
+      socialLinks: (profile.socialLinks || []).filter(link => link.id !== linkId),
     });
   };
 
@@ -175,7 +227,7 @@ export default function EditProfilePage() {
     
     setProfile({
       ...profile,
-      projects: [...profile.projects, project],
+      projects: [...(profile.projects || []), project],
     });
     
     setNewProject({
@@ -190,11 +242,12 @@ export default function EditProfilePage() {
     if (!profile) return;
     setProfile({
       ...profile,
-      projects: profile.projects.filter(project => project.id !== projectId),
+      projects: (profile.projects || []).filter(project => project.id !== projectId),
     });
   };
 
-  if (loading) {
+  // Show loading if either user or profile is loading
+  if (userLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -204,11 +257,34 @@ export default function EditProfilePage() {
     );
   }
 
+  // Show error if user fetch failed
+  if (userError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <ErrorMessage message={userError} />
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if profile fetch failed
   if (error && !profile) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <ErrorMessage message={error} onRetry={fetchProfile} />
+        </div>
+      </div>
+    );
+  }
+
+  // If no user, show not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="text-center">Please log in to edit your profile</div>
         </div>
       </div>
     );
@@ -249,6 +325,18 @@ export default function EditProfilePage() {
             </div>
           )}
 
+          {/* Debug info
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700 mb-2">Debug Info:</h3>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div>User ID: {user.id || (user as any)._id || 'undefined'}</div>
+              <div>Username: {user.username || 'undefined'}</div>
+              <div>Profile Loaded: {profile ? 'Yes' : 'No'}</div>
+              <div>Profile Name: {profile?.name || 'undefined'}</div>
+              <div>Profile Bio: {profile?.bio || 'undefined'}</div>
+            </div>
+          </div> */}
+
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             {/* Profile Picture Section */}
             <div className="space-y-4">
@@ -263,7 +351,7 @@ export default function EditProfilePage() {
                   ) : profile.profileImage ? (
                     <Image
                       src={profile.profileImage}
-                      alt={profile.name}
+                      alt={profile.name || user.username || 'Profile'}
                       width={80}
                       height={80}
                       className="w-full h-full object-cover"
@@ -303,14 +391,27 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
+                    Username *
                   </label>
                   <input
                     type="text"
-                    required
-                    value={profile.name}
+                    disabled
+                    value={user.username || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                    title="Username cannot be changed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Display Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.name || ''}
                     onChange={(e) => setProfile({...profile, name: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                    placeholder="How you want to be displayed"
                   />
                 </div>
 
@@ -318,12 +419,41 @@ export default function EditProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Role *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    value={profile.role}
+                    value={profile.role || user.role || ''}
                     onChange={(e) => setProfile({...profile, role: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800"
+                  >
+                    <option value="">Select your role</option>
+                    <option value="founder">Founder</option>
+                    <option value="cofounder">Co-founder</option>
+                    <option value="developer">Developer</option>
+                    <option value="designer">Designer</option>
+                    <option value="marketer">Marketer</option>
+                    <option value="investor">Investor</option>
+                    <option value="advisor">Advisor</option>
+                    <option value="product">Product Manager</option>
+                    <option value="operations">Operations</option>
+                    <option value="sales">Sales</option>
+                    <option value="finance">Finance</option>
+                    <option value="customer_success">Customer Success</option>
+                    <option value="data_scientist">Data Scientist</option>
+                    <option value="growth_hacker">Growth Hacker</option>
+                    <option value="legal">Legal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    disabled
+                    value={user.email || ''}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                    title="Email cannot be changed here"
                   />
                 </div>
 
@@ -342,11 +472,10 @@ export default function EditProfilePage() {
 
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bio *
+                    Bio
                   </label>
                   <textarea
-                    required
-                    value={profile.bio}
+                    value={profile.bio || ''}
                     onChange={(e) => setProfile({...profile, bio: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-800 h-24 sm:h-32 resize-none"
                     placeholder="Tell us about yourself..."
@@ -360,13 +489,13 @@ export default function EditProfilePage() {
               <h2 className="text-lg font-semibold text-gray-900">Skills</h2>
               
               <div className="space-y-3">
-                {profile.skills.map((skill) => (
+                {(profile.skills || []).map((skill) => (
                   <div key={skill.id} className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-gray-50 rounded-lg">
                     <input
                       type="text"
                       value={skill.skill}
                       onChange={(e) => {
-                        const updatedSkills = profile.skills.map(s =>
+                        const updatedSkills = (profile.skills || []).map(s =>
                           s.id === skill.id ? { ...s, skill: e.target.value } : s
                         );
                         setProfile({ ...profile, skills: updatedSkills });
@@ -376,7 +505,7 @@ export default function EditProfilePage() {
                     <select
                       value={skill.level}
                       onChange={(e) => {
-                        const updatedSkills = profile.skills.map(s =>
+                        const updatedSkills = (profile.skills || []).map(s =>
                           s.id === skill.id ? { ...s, level: e.target.value as any } : s
                         );
                         setProfile({ ...profile, skills: updatedSkills });
@@ -435,13 +564,13 @@ export default function EditProfilePage() {
               </h2>
               
               <div className="space-y-3">
-                {profile.socialLinks.map((link) => (
+                {(profile.socialLinks || []).map((link) => (
                   <div key={link.id} className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-gray-50 rounded-lg">
                     <input
                       type="text"
                       value={link.platform}
                       onChange={(e) => {
-                        const updatedLinks = profile.socialLinks.map(l =>
+                        const updatedLinks = (profile.socialLinks || []).map(l =>
                           l.id === link.id ? { ...l, platform: e.target.value } : l
                         );
                         setProfile({ ...profile, socialLinks: updatedLinks });
@@ -453,7 +582,7 @@ export default function EditProfilePage() {
                       type="url"
                       value={link.url}
                       onChange={(e) => {
-                        const updatedLinks = profile.socialLinks.map(l =>
+                        const updatedLinks = (profile.socialLinks || []).map(l =>
                           l.id === link.id ? { ...l, url: e.target.value } : l
                         );
                         setProfile({ ...profile, socialLinks: updatedLinks });
@@ -502,7 +631,7 @@ export default function EditProfilePage() {
               <h2 className="text-lg font-semibold text-gray-900">Projects</h2>
               
               <div className="space-y-4">
-                {profile.projects.map((project) => (
+                {(profile.projects || []).map((project) => (
                   <div key={project.id} className="p-4 bg-gray-50 rounded-lg space-y-3">
                     <div className="flex justify-between items-start">
                       <div className="flex-1 space-y-3">
@@ -510,7 +639,7 @@ export default function EditProfilePage() {
                           type="text"
                           value={project.title}
                           onChange={(e) => {
-                            const updatedProjects = profile.projects.map(p =>
+                            const updatedProjects = (profile.projects || []).map(p =>
                               p.id === project.id ? { ...p, title: e.target.value } : p
                             );
                             setProfile({ ...profile, projects: updatedProjects });
@@ -521,7 +650,7 @@ export default function EditProfilePage() {
                         <textarea
                           value={project.description}
                           onChange={(e) => {
-                            const updatedProjects = profile.projects.map(p =>
+                            const updatedProjects = (profile.projects || []).map(p =>
                               p.id === project.id ? { ...p, description: e.target.value } : p
                             );
                             setProfile({ ...profile, projects: updatedProjects });
@@ -533,7 +662,7 @@ export default function EditProfilePage() {
                           type="url"
                           value={project.url}
                           onChange={(e) => {
-                            const updatedProjects = profile.projects.map(p =>
+                            const updatedProjects = (profile.projects || []).map(p =>
                               p.id === project.id ? { ...p, url: e.target.value } : p
                             );
                             setProfile({ ...profile, projects: updatedProjects });
