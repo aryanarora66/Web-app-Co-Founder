@@ -1,4 +1,4 @@
-// components/idea-generator-form.tsx
+// components/ai-generative/idea-generator-form.tsx
 'use client';
 
 import { useState } from 'react';
@@ -9,7 +9,7 @@ interface IdeaGeneratorFormProps {
   isLoading: boolean;
 }
 
-export default function IdeaGeneratorForm({ onGenerate, isLoading }: IdeaGeneratorFormProps) {
+export default function IdeaGeneratorForm({ onGenerate, isLoading , isDisabled}: IdeaGeneratorFormProps) {
   const [industry, setIndustry] = useState('');
   const [keywords, setKeywords] = useState('');
   const [mood, setMood] = useState('innovative');
