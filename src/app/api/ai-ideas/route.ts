@@ -1,4 +1,5 @@
-// app/api/startup-ideas-generator/route.ts
+// src/app/api/ai-ideas/route.ts (move your existing file here)
+
 import { OpenAI } from 'openai';
 
 const openai = new OpenAI({

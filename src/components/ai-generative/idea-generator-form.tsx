@@ -9,7 +9,7 @@ interface IdeaGeneratorFormProps {
   isLoading: boolean;
 }
 
-export default function IdeaGeneratorForm({ onGenerate, isLoading , isDisabled}: IdeaGeneratorFormProps) {
+export default function IdeaGeneratorForm({ onGenerate, isLoading}: IdeaGeneratorFormProps) {
   const [industry, setIndustry] = useState('');
   const [keywords, setKeywords] = useState('');
   const [mood, setMood] = useState('innovative');

@@ -30,20 +30,17 @@ export default function StartupIdeasGenerator() {
         const data = await res.json();
         if (res.ok) {
           // User is signed in
-          // setUser(data.user); // Uncomment if you need the full user object
           setIsLoggedIn(true);
           setCanGenerate(true); // Signed-in users can always generate
         } else {
-          // User is NOT signed in
+          // User is NOT signed in - this is NORMAL for unsigned users!
           setIsLoggedIn(false);
-          setError(data.message);
-          // Set canGenerate based on unsigned user count
+          // DON'T set error for unsigned users - only set canGenerate based on count
           setCanGenerate(count < MAX_UNSIGNED_GENERATIONS);
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err);
-        setError("Failed to fetch user data");
-        // Assume not logged in on error, check unsigned limit
+        // Only set error for actual network/server errors, not for unsigned users
         setIsLoggedIn(false);
         setCanGenerate(count < MAX_UNSIGNED_GENERATIONS);
       }
@@ -161,8 +158,8 @@ export default function StartupIdeasGenerator() {
                     error={error}
                     industry={currentIndustry}
                     keywords={currentKeywords}
-                    isLoggedIn={isLoggedIn} // Pass login status
-                    generationLimitReached={generationLimitReached} // Pass limit status
+                    isLoggedIn={isLoggedIn} // Add this prop
+                    generationLimitReached={generationLimitReached} // Add this prop
                   />
                 </div>
               </div>
