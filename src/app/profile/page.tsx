@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Globe,
   Mail,
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   Loader2,
   Instagram,
+  ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,10 +27,19 @@ import ErrorMessage from '@/components/ErrorMessage';
 import useUser from '../hooks/useUser'; // Use your existing hook
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { user, loading: userLoading, error: userError } = useUser(); // Use your hook
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/');
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -90,6 +101,16 @@ export default function ProfilePage() {
   if (userLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="fixed top-3 left-3 z-50 flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:gap-2 bg-white border border-gray-300 rounded-full sm:rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={16} className="text-gray-600 sm:w-[18px] sm:h-[18px]" />
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Back</span>
+        </button>
+        
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <LoadingSpinner />
         </div>
@@ -101,6 +122,16 @@ export default function ProfilePage() {
   if (userError) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="fixed top-3 left-3 z-50 flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:gap-2 bg-white border border-gray-300 rounded-full sm:rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={16} className="text-gray-600 sm:w-[18px] sm:h-[18px]" />
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Back</span>
+        </button>
+        
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <ErrorMessage message={userError} />
         </div>
@@ -112,6 +143,16 @@ export default function ProfilePage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="fixed top-3 left-3 z-50 flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:gap-2 bg-white border border-gray-300 rounded-full sm:rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={16} className="text-gray-600 sm:w-[18px] sm:h-[18px]" />
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Back</span>
+        </button>
+        
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <ErrorMessage message={error} onRetry={fetchProfile} />
         </div>
@@ -123,6 +164,16 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        {/* Back Button */}
+        <button
+          onClick={handleBack}
+          className="fixed top-4 left-4 z-50 flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={18} className="text-gray-600" />
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Back</span>
+        </button>
+        
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-gray-600">Please log in to view your profile</p>
@@ -140,6 +191,16 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      {/* Back Button */}
+      <button
+        onClick={handleBack}
+        className="fixed top-3 left-3 z-50 flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:gap-2 bg-white border border-gray-300 rounded-full sm:rounded-lg shadow-lg hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        aria-label="Go back"
+      >
+        <ArrowLeft size={16} className="text-gray-600 sm:w-[18px] sm:h-[18px]" />
+        <span className="text-sm font-medium text-gray-700 hidden sm:inline">Back</span>
+      </button>
+
       <div className="max-w-4xl mx-auto py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 sm:p-8">
           {/* Profile Header */}
@@ -371,8 +432,8 @@ export default function ProfilePage() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 border-t pt-6">
-            <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center text-sm sm:text-base">
-              <MessageSquare className="h-4 w-4 mr-2" /> Send Message
+            <button className="px-6 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed flex items-center justify-center text-sm sm:text-base">
+              <MessageSquare className="h-4 w-4 mr-2" /> Coming Soon
             </button>
           </div>
         </div>

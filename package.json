@@ -13,6 +13,7 @@
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.9.2",
+    "imagekit": "^5.0.1",
     "jose": "^6.0.10",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.503.0",

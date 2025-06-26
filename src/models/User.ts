@@ -1,11 +1,77 @@
-// models/User.js
-import mongoose from "mongoose";
+// models/User.ts
+import mongoose, { Document, Model } from "mongoose";
 
-const UserSchema = new mongoose.Schema(
+// Define interfaces for TypeScript
+interface ISkill {
+  skill: string;
+  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+}
+
+interface ISocialLink {
+  platform: string;
+  url: string;
+}
+
+interface IProject {
+  title: string;
+  description: string;
+  url?: string;
+  technologies: string[];
+}
+
+interface IUser extends Document {
+  username: string;
+  email: string;
+  password: string;
+  name?: string;
+  role: string;
+  bio?: string;
+  description?: string;
+  website?: string;
+  location?: string;
+  profileImage?: string;
+  skills?: ISkill[];
+  lookingFor?: string[];
+  socialLinks?: ISocialLink[];
+  instagramUrl?: string;
+  projects?: IProject[];
+  demoVideos?: string[];
+  isAvailable?: boolean;
+  lastActive?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const SkillSchema = new mongoose.Schema({
+  skill: { type: String, required: true },
+  level: { 
+    type: String, 
+    enum: ["Beginner", "Intermediate", "Advanced", "Expert"],
+    required: true 
+  }
+}, { _id: false });
+
+const SocialLinkSchema = new mongoose.Schema({
+  platform: { type: String, required: true },
+  url: { type: String, required: true }
+}, { _id: false });
+
+const ProjectSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  url: { type: String },
+  technologies: [{ type: String }]
+}, { _id: false });
+
+const UserSchema = new mongoose.Schema<IUser>(
   {
-    username: { type: String, unique: true, required: true },
-    email: { type: String, unique: true, required: true },
+    // Basic Auth Info
+    username: { type: String, unique: true, required: true }, // Remove index: true since unique: true creates an index
+    email: { type: String, unique: true, required: true }, // Remove index: true since unique: true creates an index
     password: { type: String, required: true },
+    
+    // Profile Info
+    name: { type: String }, // Display name (optional)
     role: { 
       type: String, 
       enum: [
@@ -27,16 +93,49 @@ const UserSchema = new mongoose.Schema(
       ], 
       required: true 
     },
+    
+    // Profile Details
+    bio: { type: String }, // New: replaces description
+    description: { type: String }, // Keep for backward compatibility
+    website: { type: String },
+    location: { type: String },
     profileImage: { type: String },
-    description: { type: String },
+    
+    // Skills and Experience
+    skills: [SkillSchema],
+    lookingFor: [{ type: String }],
+    
+    // Social Links
+    socialLinks: [SocialLinkSchema],
+    instagramUrl: { type: String }, // Keep for backward compatibility
+    
+    // Projects
+    projects: [ProjectSchema],
+    
+    // Legacy fields (keep for compatibility)
     demoVideos: [{ type: String }], // For influencers
-    skills: [{
-      skill: { type: String },
-      level: { type: String, enum: ["Beginner", "Intermediate", "Advanced", "Expert"] }
-    }],
-    lookingFor: [{ type: String }]
+    
+    // Availability Status
+    isAvailable: { type: Boolean, default: true },
+    lastActive: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );
 
-export default mongoose.models.User || mongoose.model("User", UserSchema);
+// Update lastActive on save
+UserSchema.pre('save', function(next) {
+  this.lastActive = new Date();
+  next();
+});
+
+// Index for search (remove duplicate indexes)
+UserSchema.index({ role: 1 });
+UserSchema.index({ 'skills.skill': 1 });
+UserSchema.index({ isAvailable: 1 });
+UserSchema.index({ lastActive: -1 });
+// Note: username and email indexes are automatically created by unique: true
+
+// Export the model with proper typing
+const UserModel: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+export default UserModel;
+export type { IUser };

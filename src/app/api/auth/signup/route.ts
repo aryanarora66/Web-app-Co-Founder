@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
-import User from "@/models/User";
+import UserModel, { type IUser } from "@/models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const { name, email, username, password, role } = await req.json();
+    const { 
+      name, 
+      email, 
+      username, 
+      password, 
+      role,
+      bio,
+      website,
+      location,
+      instagramUrl,
+      skills,
+      lookingFor,
+      socialLinks
+    } = await req.json();
 
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await UserModel.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return NextResponse.json({ message: "Email or username already taken" }, { status: 400 });
     }
@@ -18,13 +31,32 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
-    const newUser = new User({
+    // Create new user with complete profile
+    const newUser = new UserModel({
+      // Basic auth info
       name,
       email,
       username,
       password: hashedPassword,
-      role, // "co-founder" or "founder"
+      role,
+      
+      // Profile details
+      bio: bio || "",
+      description: bio || "", // Keep for backward compatibility
+      website: website || "",
+      location: location || "",
+      instagramUrl: instagramUrl || "",
+      
+      // Skills and looking for
+      skills: skills || [],
+      lookingFor: lookingFor || [],
+      
+      // Social links
+      socialLinks: socialLinks || [],
+      
+      // Default values
+      isAvailable: true,
+      lastActive: new Date()
     });
 
     await newUser.save();
@@ -37,7 +69,15 @@ export async function POST(req: NextRequest) {
     );
 
     // Set HTTP-only cookie
-    const response = NextResponse.json({ message: "Signup successful", user: { id: newUser._id, role: newUser.role } }, { status: 201 });
+    const response = NextResponse.json({ 
+      message: "Signup successful", 
+      user: { 
+        id: newUser._id, 
+        username: newUser.username,
+        role: newUser.role,
+        name: newUser.name 
+      } 
+    }, { status: 201 });
 
     response.cookies.set("token", token, {
       httpOnly: true,
@@ -48,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Signup error:", error); // Log the error for debugging
+    console.error("Signup error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
