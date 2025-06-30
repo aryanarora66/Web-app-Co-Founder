@@ -40,6 +40,11 @@ interface IUser extends Document {
   lastActive?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  
+  // Email verification fields
+  isEmailVerified?: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
 }
 
 const SkillSchema = new mongoose.Schema({
@@ -66,12 +71,12 @@ const ProjectSchema = new mongoose.Schema({
 const UserSchema = new mongoose.Schema<IUser>(
   {
     // Basic Auth Info
-    username: { type: String, unique: true, required: true }, // Remove index: true since unique: true creates an index
-    email: { type: String, unique: true, required: true }, // Remove index: true since unique: true creates an index
+    username: { type: String, unique: true, required: true },
+    email: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     
     // Profile Info
-    name: { type: String }, // Display name (optional)
+    name: { type: String },
     role: { 
       type: String, 
       enum: [
@@ -95,8 +100,8 @@ const UserSchema = new mongoose.Schema<IUser>(
     },
     
     // Profile Details
-    bio: { type: String }, // New: replaces description
-    description: { type: String }, // Keep for backward compatibility
+    bio: { type: String },
+    description: { type: String },
     website: { type: String },
     location: { type: String },
     profileImage: { type: String },
@@ -107,17 +112,22 @@ const UserSchema = new mongoose.Schema<IUser>(
     
     // Social Links
     socialLinks: [SocialLinkSchema],
-    instagramUrl: { type: String }, // Keep for backward compatibility
+    instagramUrl: { type: String },
     
     // Projects
     projects: [ProjectSchema],
     
-    // Legacy fields (keep for compatibility)
-    demoVideos: [{ type: String }], // For influencers
+    // Legacy fields
+    demoVideos: [{ type: String }],
     
     // Availability Status
     isAvailable: { type: Boolean, default: true },
-    lastActive: { type: Date, default: Date.now }
+    lastActive: { type: Date, default: Date.now },
+    
+    // Email Verification
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String },
+    emailVerificationExpires: { type: Date }
   },
   { timestamps: true }
 );
@@ -128,14 +138,13 @@ UserSchema.pre('save', function(next) {
   next();
 });
 
-// Index for search (remove duplicate indexes)
+// Indexes
 UserSchema.index({ role: 1 });
 UserSchema.index({ 'skills.skill': 1 });
 UserSchema.index({ isAvailable: 1 });
 UserSchema.index({ lastActive: -1 });
-// Note: username and email indexes are automatically created by unique: true
+UserSchema.index({ emailVerificationToken: 1 });
 
-// Export the model with proper typing
 const UserModel: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
 export default UserModel;
 export type { IUser };

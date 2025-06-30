@@ -8,6 +8,8 @@ interface SignupFormProps {
 
 export default function SignupForm({ onSuccess }: SignupFormProps) {
   const [step, setStep] = useState(1);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [formData, setFormData] = useState({
     // Basic Info
     name: "",
@@ -38,6 +40,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
     if (formData.username.length > 2) {
@@ -136,6 +139,29 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     setError("");
   };
 
+  const resendVerificationEmail = async () => {
+    setResendLoading(true);
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert('Verification email sent! Please check your inbox.');
+      } else {
+        alert(data.message || 'Failed to resend email');
+      }
+    } catch (error) {
+      alert('An error occurred while resending the email');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -149,8 +175,20 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Signup failed");
-      onSuccess();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
+
+      // Check if email verification is required
+      if (data.requiresEmailVerification) {
+        setUserEmail(formData.email);
+        localStorage.setItem('pendingVerificationEmail', formData.email);
+        setShowEmailVerification(true);
+      } else {
+        // No verification needed, proceed to success
+        onSuccess();
+      }
     } catch (err: unknown) {
       console.error("Signup error:", err);
       if (err instanceof Error) {
@@ -162,6 +200,69 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
       setLoading(false);
     }
   };
+
+  // Show email verification screen
+  if (showEmailVerification) {
+    return (
+      <div className="text-center space-y-6">
+        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Check Your Email</h3>
+          <p className="text-gray-600 mb-1">
+            We've sent a verification link to
+          </p>
+          <p className="font-medium text-gray-900 mb-4">{userEmail}</p>
+          <p className="text-sm text-gray-500 mb-6">
+            Please click the link in your email to verify your account before logging in.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={resendVerificationEmail}
+            disabled={resendLoading}
+            className="w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {resendLoading ? 'Sending...' : 'Resend verification email'}
+          </button>
+          
+          <button
+            onClick={() => {
+              setShowEmailVerification(false);
+              setStep(1);
+              setFormData({
+                name: "",
+                email: "",
+                username: "",
+                password: "",
+                confirmPassword: "",
+                role: "founder",
+                bio: "",
+                website: "",
+                location: "",
+                instagramUrl: "",
+                skills: [],
+                lookingFor: [],
+                socialLinks: [],
+              });
+            }}
+            className="w-full py-2 px-4 text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Use a different email address
+          </button>
+        </div>
+
+        <div className="text-xs text-gray-500 border-t pt-4">
+          <p>Didn't receive the email? Check your spam folder or try resending.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
