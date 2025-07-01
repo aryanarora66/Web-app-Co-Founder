@@ -6,11 +6,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface IdeaDetailPageProps {
-  params: {
-    id: string;
-  };
-}
+
 
 interface User {
   id: string;
@@ -26,7 +22,7 @@ interface User {
   updatedAt: string;
 }
 
-export default function IdeaDetailPage({ params }: IdeaDetailPageProps) {
+export default function IdeaDetailPage({ params }: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
