@@ -45,6 +45,10 @@ interface IUser extends Document {
   isEmailVerified?: boolean;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
+  
+  // Password reset fields
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
 }
 
 const SkillSchema = new mongoose.Schema({
@@ -127,7 +131,11 @@ const UserSchema = new mongoose.Schema<IUser>(
     // Email Verification
     isEmailVerified: { type: Boolean, default: false },
     emailVerificationToken: { type: String },
-    emailVerificationExpires: { type: Date }
+    emailVerificationExpires: { type: Date },
+    
+    // Password Reset
+    passwordResetToken: { type: String },
+    passwordResetExpires: { type: Date }
   },
   { timestamps: true }
 );
@@ -144,6 +152,7 @@ UserSchema.index({ 'skills.skill': 1 });
 UserSchema.index({ isAvailable: 1 });
 UserSchema.index({ lastActive: -1 });
 UserSchema.index({ emailVerificationToken: 1 });
+UserSchema.index({ passwordResetToken: 1 });
 
 const UserModel: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
 export default UserModel;
